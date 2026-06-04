@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>THE TRACKER — Architecture Guide</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0a0e1a;--ink2:#1e2535;--muted:#6b7a99;
+  --accent:#2563eb;--green:#16a34a;--amber:#d97706;--rose:#e11d48;--purple:#7c3aed;
+  --border:#e2e8f0;--bg:#ffffff;--bg2:#f8fafc;--bg3:#f1f5f9;
+  --font:'Inter',system-ui,sans-serif;--mono:'JetBrains Mono',monospace;
+}
+html{font-size:11pt}
+body{font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.6;}
+@media print{
+  .page-break{page-break-before:always}
+  body{font-size:10pt}
+}
+.wrapper{max-width:900px;margin:0 auto;padding:48px 40px}
+
+/* Cover */
+.cover{
+  min-height:100vh;background:linear-gradient(160deg,#060a14 0%,#0d1525 60%,#1a2540 100%);
+  color:#fff;padding:80px;display:flex;flex-direction:column;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.cover::before,.cover::after{
+  content:'';position:absolute;border-radius:50%;filter:blur(80px);
+}
+.cover::before{width:500px;height:500px;background:rgba(37,99,235,0.15);top:-100px;right:-100px}
+.cover::after{width:400px;height:400px;background:rgba(124,58,237,0.1);bottom:-100px;left:200px}
+
+/* Grid layouts */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:20px 0}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:20px 0}
+
+/* Section */
+.section-label{font-size:8pt;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.section-label::before{content:'';width:16px;height:2px;background:var(--accent);display:block}
+h2{font-size:20pt;font-weight:800;letter-spacing:-0.02em;color:var(--ink);margin-bottom:12px}
+h3{font-size:13pt;font-weight:700;color:var(--ink);margin:24px 0 10px}
+h4{font-size:11pt;font-weight:700;color:var(--ink2);margin:16px 0 8px}
+.intro{font-size:10.5pt;color:var(--muted);line-height:1.7;margin-bottom:24px;max-width:680px}
+hr{border:none;border-top:1px solid var(--border);margin:36px 0}
+
+/* Code */
+.code{background:#060a14;color:#e2e8f0;border-radius:10px;padding:20px;margin:14px 0;font-family:var(--mono);font-size:9pt;line-height:1.8;overflow-x:auto}
+.label{background:#1e2535;color:#8897b8;font-family:var(--mono);font-size:8pt;padding:5px 16px;border-radius:8px 8px 0 0;display:inline-block;margin-bottom:-4px}
+.c{color:#4ade80}.k{color:#60a5fa}.s{color:#fbbf24}.t{color:#c084fc}.f{color:#34d399}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin:16px 0;font-size:10pt}
+thead tr{background:#060a14;color:#fff}
+th{padding:10px 14px;text-align:left;font-size:8.5pt;font-weight:700;letter-spacing:0.05em;text-transform:uppercase}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+tr:nth-child(even) td{background:var(--bg3)}
+td code{font-family:var(--mono);font-size:9pt;background:var(--bg3);padding:2px 5px;border-radius:4px;color:var(--purple)}
+
+/* Architecture diagram */
+.arch-diagram{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;margin:20px 0}
+.arch-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.arch-row:last-child{margin-bottom:0}
+.arch-box{
+  border-radius:8px;padding:10px 14px;text-align:center;
+  font-size:9pt;font-weight:600;line-height:1.4;flex:1;
+}
+.arch-connector{width:24px;flex-shrink:0;text-align:center;color:var(--muted);font-size:16px}
+.arch-label-l{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);min-width:80px;text-align:right;flex-shrink:0}
+
+/* DB entity */
+.db-entity{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:14px;break-inside:avoid}
+.db-header{background:#060a14;color:#fff;padding:9px 14px;font-size:10pt;font-weight:700;display:flex;align-items:center;gap:8px}
+.db-col{display:flex;align-items:center;padding:7px 14px;border-bottom:1px solid var(--border);font-size:9pt}
+.db-col:last-child{border-bottom:none}
+.db-name{flex:1;font-family:var(--mono);color:var(--ink2)}
+.db-type{font-family:var(--mono);font-size:8.5pt;color:var(--muted);min-width:90px}
+.db-pk{font-size:7pt;font-weight:800;color:#d97706;background:#fef3c7;padding:2px 5px;border-radius:3px;margin-right:7px}
+.db-fk{font-size:7pt;font-weight:800;color:#7c3aed;background:#f3e8ff;padding:2px 5px;border-radius:3px;margin-right:7px}
+
+/* Callout */
+.callout{border-radius:10px;padding:14px 18px;display:flex;gap:12px;margin:16px 0}
+.callout.info{background:#eff6ff;border:1px solid #bfdbfe}
+.callout.warn{background:#fffbeb;border:1px solid #fde68a}
+.callout.success{background:#f0fdf4;border:1px solid #bbf7d0}
+.callout-icon{font-size:16px;flex-shrink:0;margin-top:2px}
+.callout-body{font-size:10pt;line-height:1.6}
+.callout-body strong{display:block;font-size:10.5pt;margin-bottom:3px}
+
+/* Badge */
+.badge{display:inline-flex;align-items:center;font-size:8pt;font-weight:700;padding:3px 9px;border-radius:100px}
+.b-blue{background:#dbeafe;color:#1d4ed8;border:1px solid #bfdbfe}
+.b-green{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0}
+.b-purple{background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff}
+.b-amber{background:#fef3c7;color:#92400e;border:1px solid #fde68a}
+.b-rose{background:#fff1f2;color:#9f1239;border:1px solid #fecdd3}
+
+/* Timeline */
+.timeline{padding-left:28px;position:relative;margin:16px 0}
+.timeline::before{content:'';position:absolute;left:7px;top:0;bottom:0;width:2px;background:var(--border)}
+.tl-item{position:relative;margin-bottom:18px}
+.tl-item::before{content:'';position:absolute;left:-23px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 0 0 2px var(--accent)}
+.tl-num{font-family:var(--mono);font-size:8pt;color:var(--accent);font-weight:600;margin-bottom:1px}
+.tl-title{font-size:10.5pt;font-weight:700}
+.tl-desc{font-size:9.5pt;color:var(--muted);line-height:1.6;margin-top:2px}
+
+/* Card */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px}
+.card-title{font-size:10.5pt;font-weight:700;margin-bottom:5px}
+.card-text{font-size:9.5pt;color:var(--muted);line-height:1.6}
+
+/* Flow */
+.flow{display:flex;align-items:center;gap:0;margin:16px 0;flex-wrap:wrap}
+.flow-step{flex:1;min-width:80px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;position:relative}
+.flow-step+.flow-step::before{content:'→';position:absolute;left:-16px;top:50%;transform:translateY(-50%);color:var(--accent);font-weight:700;font-size:16px}
+.flow-step-n{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:9pt;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 6px}
+.flow-step-t{font-size:9.5pt;font-weight:700}
+.flow-step-s{font-size:8.5pt;color:var(--muted);margin-top:2px}
+
+/* Security */
+.sec-layer{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:8px;margin-bottom:8px;background:var(--bg2);border:1px solid var(--border)}
+.sec-n{width:26px;height:26px;border-radius:50%;background:var(--ink);color:#fff;font-size:9pt;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+
+/* List */
+ul.lst{list-style:none;padding:0;margin:10px 0}
+ul.lst li{padding:5px 0 5px 18px;position:relative;font-size:10pt;border-bottom:1px solid var(--border)}
+ul.lst li:last-child{border-bottom:none}
+ul.lst li::before{content:'▸';position:absolute;left:0;color:var(--accent);font-size:9pt}
+
+/* Stats */
+.stats{display:flex;gap:12px;margin:16px 0}
+.stat{flex:1;text-align:center;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+.stat-n{font-size:22pt;font-weight:800;font-family:var(--mono);line-height:1}
+.stat-l{font-size:9pt;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div style="font-size:8.5pt;font-family:var(--mono);color:rgba(255,255,255,0.35);letter-spacing:0.25em;margin-bottom:10px;">ARCHITECTURE GUIDE · TECHNICAL REFERENCE</div>
+  <div style="font-size:48pt;font-weight:800;letter-spacing:-0.03em;color:#fff;line-height:1;margin-bottom:6px;">THE TRACKER</div>
+  <div style="font-size:16pt;color:rgba(255,255,255,0.45);font-weight:300;letter-spacing:0.08em;margin-bottom:40px;">Architecture Guide</div>
+  <div style="font-size:10pt;color:rgba(255,255,255,0.3);font-family:var(--mono);line-height:2;">
+    Stack: Next.js 16.2 App Router · React 19 · TypeScript 5 · Supabase PostgreSQL · Tailwind 4<br>
+    Auth: Google OAuth 2.0 · Supabase Auth · JWT · HTTP-only Cookies<br>
+    Database: 15 Tables · 11 Migrations · RLS on All · 6 Triggers<br>
+    Deployment: Vercel Edge · Supabase Cloud · No Custom API Routes
+  </div>
+  <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.1);font-size:9pt;color:rgba(255,255,255,0.25);font-family:var(--mono);">Hussein A-H · github.com/HusseinA-H/THE-TRACKER · June 2026</div>
+</div>
+
+<div class="wrapper">
+
+<!-- ══════════════════════════════════════════ -->
+<div class="page-break"></div>
+<div style="margin-bottom:40px">
+  <div class="section-label">Architecture Guide</div>
+  <h2>System Architecture Overview</h2>
+  <p class="intro">THE TRACKER is a monolithic Next.js application with zero custom API routes. All server-side mutations run through Next.js Server Actions. Data access is enforced at the PostgreSQL layer via Row-Level Security, creating a true defense-in-depth architecture.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-n">24</div><div class="stat-l">Routes</div></div>
+    <div class="stat"><div class="stat-n">0</div><div class="stat-l">API Routes</div></div>
+    <div class="stat"><div class="stat-n">15</div><div class="stat-l">DB Tables</div></div>
+    <div class="stat"><div class="stat-n">6</div><div class="stat-l">Triggers</div></div>
+    <div class="stat"><div class="stat-n">11</div><div class="stat-l">Migrations</div></div>
+    <div class="stat"><div class="stat-n">3</div><div class="stat-l">Auth Roles</div></div>
+  </div>
+</div>
+
+<!-- Layered Architecture -->
+<h3>Layered Architecture</h3>
+<div class="arch-diagram">
+  <div class="arch-row">
+    <div class="arch-label-l">Browser</div>
+    <div class="arch-box" style="background:#dbeafe;border:1px solid #bfdbfe;color:#1e40af;">React Client Components</div>
+    <div class="arch-box" style="background:#dbeafe;border:1px solid #bfdbfe;color:#1e40af;">shadcn/ui + Radix</div>
+    <div class="arch-box" style="background:#dbeafe;border:1px solid #bfdbfe;color:#1e40af;">Recharts</div>
+    <div class="arch-box" style="background:#dbeafe;border:1px solid #bfdbfe;color:#1e40af;">Sonner (Toasts)</div>
+  </div>
+  <div style="text-align:center;padding:4px;color:#93c5fd;font-size:20px">↕</div>
+  <div class="arch-row">
+    <div class="arch-label-l">Next.js</div>
+    <div class="arch-box" style="background:#f3e8ff;border:1px solid #e9d5ff;color:#6b21a8;">App Router (RSC)</div>
+    <div class="arch-box" style="background:#f3e8ff;border:1px solid #e9d5ff;color:#6b21a8;">Server Actions</div>
+    <div class="arch-box" style="background:#f3e8ff;border:1px solid #e9d5ff;color:#6b21a8;">Middleware (proxy.ts)</div>
+    <div class="arch-box" style="background:#f3e8ff;border:1px solid #e9d5ff;color:#6b21a8;">Turbopack</div>
+  </div>
+  <div style="text-align:center;padding:4px;color:#c084fc;font-size:20px">↕</div>
+  <div class="arch-row">
+    <div class="arch-label-l">Service</div>
+    <div class="arch-box" style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;">Feature Services</div>
+    <div class="arch-box" style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;">Admin Security</div>
+    <div class="arch-box" style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;">@supabase/ssr</div>
+    <div class="arch-box" style="background:#fef3c7;border:1px solid #fde68a;color:#92400e;">ActionResult&lt;T&gt;</div>
+  </div>
+  <div style="text-align:center;padding:4px;color:#fcd34d;font-size:20px">↕</div>
+  <div class="arch-row">
+    <div class="arch-label-l">Database</div>
+    <div class="arch-box" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;">PostgreSQL 15</div>
+    <div class="arch-box" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;">Row-Level Security</div>
+    <div class="arch-box" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;">6 Triggers</div>
+    <div class="arch-box" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d;">Supabase Auth</div>
+  </div>
+  <div style="text-align:center;padding:4px;color:#86efac;font-size:20px">↕</div>
+  <div class="arch-row">
+    <div class="arch-label-l">Platform</div>
+    <div class="arch-box" style="background:#f8fafc;border:1px solid var(--border);">Vercel Edge CDN</div>
+    <div class="arch-box" style="background:#f8fafc;border:1px solid var(--border);">Supabase Cloud</div>
+    <div class="arch-box" style="background:#f8fafc;border:1px solid var(--border);">Supabase Storage</div>
+    <div class="arch-box" style="background:#f8fafc;border:1px solid var(--border);">Google OAuth 2.0</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- Request Lifecycle -->
+<h3>Request Lifecycle — Full Read Flow</h3>
+<div class="label">GET /dashboard (Server Component page render)</div>
+<div class="code">
+<span class="c">// 1. Browser hits Vercel Edge CDN</span>
+GET /dashboard → Vercel routes to serverless function
+
+<span class="c">// 2. proxy.ts middleware runs FIRST (before any page)</span>
+export async function middleware(request) {
+  const supabase = createServerClient(...);
+  const { data: { user } } = await supabase.auth.getUser();
+  <span class="c">// Writes refreshed session cookies back to response</span>
+}
+
+<span class="c">// 3. DashboardLayout (Server Component)</span>
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) redirect("/login");
+const { data: profileRow } = await supabase.from("profiles").select("*")...
+
+<span class="c">// 4. Page Component (Server Component)</span>
+const stats = await getDashboardStats();  <span class="c">// Service layer call</span>
+
+<span class="c">// 5. getDashboardStats() calls Supabase</span>
+<span class="c">// PostgreSQL executes query → RLS filter applied → data returned</span>
+<span class="c">// RLS: auth.uid() = user_id automatically filters rows</span>
+
+<span class="c">// 6. RSC renders HTML server-side → streamed to browser</span>
+<span class="c">// Client components hydrate with React 19</span>
+</div>
+
+<h3>Request Lifecycle — Mutation Flow (Server Action)</h3>
+<div class="label">POST via Server Action — logSetAction()</div>
+<div class="code">
+<span class="c">// 1. Client component calls action</span>
+const result = await addEntryAction({ workoutId, exerciseId, weight, reps });
+
+<span class="c">// 2. Server Action ("use server") runs on server</span>
+export async function addEntryAction(input: LogSetInput) {
+  const entry = await createWorkoutEntry(input);  <span class="c">// service</span>
+  revalidatePath("/dashboard/workouts/active");    <span class="c">// invalidate cache</span>
+  return { success: true, data: entry };
+}
+
+<span class="c">// 3. createWorkoutEntry() in workout-service.ts</span>
+const supabase = await createClient();             <span class="c">// auth-aware client</span>
+const { data: { user } } = await supabase.auth.getUser();
+if (!user) throw new Error("Unauthorized");
+
+<span class="c">// 4. Insert to PostgreSQL</span>
+<span class="c">// RLS CHECK POLICY validates workout belongs to auth.uid()</span>
+await supabase.from("workout_entries").insert(entryRow);
+
+<span class="c">// 5. PR check: compare against personal_records</span>
+<span class="c">// If new PR: upsert personal_records + insert pr_history row</span>
+
+<span class="c">// 6. revalidatePath() triggers Next.js to re-fetch RSC data</span>
+<span class="c">// Active workout page re-renders with new set visible</span>
+</div>
+
+<hr>
+
+<!-- Authentication Architecture -->
+<div class="page-break"></div>
+<div class="section-label">Auth Architecture</div>
+<h2>Authentication & Authorization Architecture</h2>
+
+<h3>Google OAuth 2.0 Flow</h3>
+<div class="flow">
+  <div class="flow-step"><div class="flow-step-n">1</div><div class="flow-step-t">Login Page</div><div class="flow-step-s">Click Google button</div></div>
+  <div class="flow-step"><div class="flow-step-n">2</div><div class="flow-step-t">Google OAuth</div><div class="flow-step-s">Identity verify</div></div>
+  <div class="flow-step"><div class="flow-step-n">3</div><div class="flow-step-t">/auth/callback</div><div class="flow-step-s">Code exchange</div></div>
+  <div class="flow-step"><div class="flow-step-n">4</div><div class="flow-step-t">DB Trigger</div><div class="flow-step-s">Profile created</div></div>
+  <div class="flow-step"><div class="flow-step-n">5</div><div class="flow-step-t">Cookie Set</div><div class="flow-step-s">JWT in HTTP-only</div></div>
+  <div class="flow-step"><div class="flow-step-n">6</div><div class="flow-step-t">/dashboard</div><div class="flow-step-s">Redirect</div></div>
+</div>
+
+<h3>Middleware Architecture (proxy.ts)</h3>
+<div class="label">src/proxy.ts — Next.js Middleware</div>
+<div class="code">
+export async function middleware(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() { return request.cookies.getAll() },
+        setAll(cookiesToSet) {
+          <span class="c">// CRITICAL: write refreshed cookies back to response</span>
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        }
+      }
+    }
+  );
+
+  <span class="c">// This call triggers token refresh if needed</span>
+  const { data: { user } } = await supabase.auth.getUser();
+  return supabaseResponse;
+}
+
+export const config = { matcher: ['/((?!_next/static|favicon).*)'] };
+</div>
+
+<h3>RBAC Architecture</h3>
+<table>
+  <thead><tr><th>Role</th><th>Database Value</th><th>Application Access</th><th>Protected By</th></tr></thead>
+  <tbody>
+    <tr><td><span class="badge b-blue">user</span></td><td>'user'</td><td>All /dashboard/* routes + own data only</td><td>RLS policies (auth.uid() = user_id)</td></tr>
+    <tr><td><span class="badge b-amber">admin</span></td><td>'admin'</td><td>/administration/* (except users/settings)</td><td>verifyAdmin() + RLS</td></tr>
+    <tr><td><span class="badge b-purple">super_admin</span></td><td>'super_admin'</td><td>All routes including user management</td><td>verifySuperAdmin() + DB trigger</td></tr>
+  </tbody>
+</table>
+
+<div class="label">src/features/admin/security.ts</div>
+<div class="code">
+<span class="k">export async function</span> <span class="f">verifyAdmin</span>() {
+  <span class="k">const</span> { user } = <span class="k">await</span> <span class="f">getAuthenticatedUser</span>();
+  <span class="k">const</span> profile = <span class="k">await</span> supabase.from(<span class="s">"profiles"</span>).select(<span class="s">"role"</span>).eq(<span class="s">"id"</span>, user.id);
+  <span class="k">if</span> (!['admin','super_admin'].includes(profile.role))
+    <span class="k">throw new</span> Error(<span class="s">"Forbidden"</span>);
+  <span class="k">return</span> { user, role: profile.role };
+}
+
+<span class="c">// Every admin server action starts with:</span>
+<span class="k">const</span> { role } = <span class="k">await</span> <span class="f">verifyAdmin</span>();
+</div>
+
+<hr>
+
+<!-- Database Architecture -->
+<div class="page-break"></div>
+<div class="section-label">Database Architecture</div>
+<h2>Database Schema Architecture</h2>
+
+<h3>Entity Relationship Map</h3>
+<div class="code">
+auth.users (Supabase managed)
+│
+└─[1:1 CASCADE]─► profiles
+                  ├─[1:N CASCADE]─► workouts
+                  │                 └─[1:N CASCADE]─► workout_entries ◄─[1:N RESTRICT]─ exercises
+                  │                                   └─[N:1 SET NULL]─► personal_records
+                  │
+                  ├─[1:N CASCADE]─► weight_logs ◄──────────────────────────── TRIGGER SYNC
+                  │                                                                    │
+                  ├─[1:N CASCADE]─► body_measurements ◄───────────────────────────────┘
+                  ├─[1:N CASCADE]─► progress_photos
+                  ├─[1:N CASCADE]─► personal_records
+                  │                 └─[1:N CASCADE]─► personal_records_history
+                  └─[1:1 CASCADE]─► user_schedule_settings
+
+exercises
+│
+├─[1:N CASCADE]─► exercise_alternatives (exercise_id + alternative_id → exercises)
+├─[1:N CASCADE]─► workout_template_exercises ◄─── workout_templates
+│                                                  └─ workout_packages (via workout_package_templates)
+└─[1:N CASCADE]─► personal_records_history
+</div>
+
+<h3>Complete Table Schemas</h3>
+
+<div class="grid2">
+  <div class="db-entity">
+    <div class="db-header">👤 profiles</div>
+    <div class="db-col"><span class="db-pk">PK</span><span class="db-name">id</span><span class="db-type">uuid</span></div>
+    <div class="db-col"><span class="db-name">email</span><span class="db-type">text UNIQUE NOT NULL</span></div>
+    <div class="db-col"><span class="db-name">display_name</span><span class="db-type">text</span></div>
+    <div class="db-col"><span class="db-name">avatar_url</span><span class="db-type">text</span></div>
+    <div class="db-col"><span class="db-name">role</span><span class="db-type">'user'|'admin'|'super_admin'</span></div>
+    <div class="db-col"><span class="db-name">created_at</span><span class="db-type">timestamptz DEFAULT NOW()</span></div>
+    <div class="db-col"><span class="db-name">updated_at</span><span class="db-type">timestamptz DEFAULT NOW()</span></div>
+  </div>
+  <div class="db-entity">
+    <div class="db-header">🏋️ exercises</div>
+    <div class="db-col"><span class="db-pk">PK</span><span class="db-name">id</span><span class="db-type">uuid gen_random_uuid()</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">user_id</span><span class="db-type">uuid NULLABLE → profiles</span></div>
+    <div class="db-col"><span class="db-name">name</span><span class="db-type">text NOT NULL</span></div>
+    <div class="db-col"><span class="db-name">primary_muscle_group</span><span class="db-type">text (CHECK)</span></div>
+    <div class="db-col"><span class="db-name">secondary_muscle_group</span><span class="db-type">text</span></div>
+    <div class="db-col"><span class="db-name">category</span><span class="db-type">text (Upper|Lower|Cardio)</span></div>
+    <div class="db-col"><span class="db-name">video_url</span><span class="db-type">text</span></div>
+    <div class="db-col"><span class="db-name">is_custom</span><span class="db-type">boolean DEFAULT true</span></div>
+  </div>
+  <div class="db-entity">
+    <div class="db-header">💪 workouts</div>
+    <div class="db-col"><span class="db-pk">PK</span><span class="db-name">id</span><span class="db-type">uuid</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">user_id</span><span class="db-type">uuid NOT NULL → profiles</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">template_id</span><span class="db-type">uuid NULLABLE → templates</span></div>
+    <div class="db-col"><span class="db-name">name</span><span class="db-type">text DEFAULT 'Workout'</span></div>
+    <div class="db-col"><span class="db-name">notes</span><span class="db-type">text</span></div>
+    <div class="db-col"><span class="db-name">started_at</span><span class="db-type">timestamptz DEFAULT NOW()</span></div>
+    <div class="db-col"><span class="db-name">completed_at</span><span class="db-type">timestamptz NULLABLE</span></div>
+  </div>
+  <div class="db-entity">
+    <div class="db-header">📝 workout_entries</div>
+    <div class="db-col"><span class="db-pk">PK</span><span class="db-name">id</span><span class="db-type">uuid</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">workout_id</span><span class="db-type">uuid NOT NULL CASCADE</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">exercise_id</span><span class="db-type">uuid NOT NULL RESTRICT</span></div>
+    <div class="db-col"><span class="db-name">set_number</span><span class="db-type">integer NOT NULL</span></div>
+    <div class="db-col"><span class="db-name">weight</span><span class="db-type">numeric(6,2) DEFAULT 0</span></div>
+    <div class="db-col"><span class="db-name">reps</span><span class="db-type">integer DEFAULT 0</span></div>
+    <div class="db-col"><span class="db-name">set_type</span><span class="db-type">warmup|working|top|failure</span></div>
+    <div class="db-col"><span class="db-name">is_pr</span><span class="db-type">boolean DEFAULT false</span></div>
+    <div class="db-col"><span class="db-name">estimated_1rm</span><span class="db-type">numeric(6,2)</span></div>
+  </div>
+  <div class="db-entity">
+    <div class="db-header">🏆 personal_records</div>
+    <div class="db-col"><span class="db-pk">PK</span><span class="db-name">id</span><span class="db-type">uuid</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">user_id</span><span class="db-type">uuid NOT NULL</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">exercise_id</span><span class="db-type">uuid NOT NULL</span></div>
+    <div class="db-col"><span class="db-name">max_weight</span><span class="db-type">numeric(6,2) DEFAULT 0</span></div>
+    <div class="db-col"><span class="db-name">max_estimated_1rm</span><span class="db-type">numeric(6,2) DEFAULT 0</span></div>
+    <div class="db-col"><span class="db-name">max_volume</span><span class="db-type">numeric(8,2) DEFAULT 0</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">set_id</span><span class="db-type">uuid → workout_entries</span></div>
+    <div style="padding:5px 14px;font-size:8pt;color:var(--muted);">UNIQUE (user_id, exercise_id)</div>
+  </div>
+  <div class="db-entity">
+    <div class="db-header">📋 workout_templates</div>
+    <div class="db-col"><span class="db-pk">PK</span><span class="db-name">id</span><span class="db-type">uuid</span></div>
+    <div class="db-col"><span class="db-fk">FK</span><span class="db-name">user_id</span><span class="db-type">uuid NULLABLE → profiles</span></div>
+    <div class="db-col"><span class="db-name">name</span><span class="db-type">text NOT NULL</span></div>
+    <div class="db-col"><span class="db-name">description</span><span class="db-type">text</span></div>
+    <div class="db-col"><span class="db-name">estimated_duration</span><span class="db-type">integer (minutes)</span></div>
+    <div class="db-col"><span class="db-name">muscle_focus</span><span class="db-type">text</span></div>
+    <div style="padding:5px 14px;font-size:8pt;color:var(--muted);">user_id IS NULL = system template</div>
+  </div>
+</div>
+
+<h3>Database Triggers</h3>
+<table>
+  <thead><tr><th>Trigger Name</th><th>Event</th><th>Function</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>on_auth_user_created</td><td>AFTER INSERT on auth.users</td><td>handle_new_user()</td><td>Auto-create profile on first Google login</td></tr>
+    <tr><td>profiles_updated_at</td><td>BEFORE UPDATE on profiles</td><td>update_updated_at()</td><td>Auto-timestamp updated_at</td></tr>
+    <tr><td>personal_records_updated_at</td><td>BEFORE UPDATE on personal_records</td><td>update_updated_at()</td><td>Auto-timestamp updated_at</td></tr>
+    <tr><td>protect_profile_role</td><td>BEFORE UPDATE on profiles</td><td>check_role_update()</td><td>Prevent unauthorized role escalation</td></tr>
+    <tr><td>sync_template_exercise_order</td><td>BEFORE INSERT/UPDATE on template_exercises</td><td>sync_template_exercise_order()</td><td>Keep sequence_number and exercise_order in sync</td></tr>
+    <tr><td>trigger_sync_weight_to_measurements</td><td>AFTER INSERT/UPDATE on weight_logs</td><td>sync_weight_to_measurements()</td><td>Mirror weight log to body_measurements</td></tr>
+    <tr><td>trigger_sync_measurements_to_weight</td><td>AFTER INSERT/UPDATE on body_measurements</td><td>sync_measurements_to_weight()</td><td>Mirror measurement weight to weight_logs</td></tr>
+  </tbody>
+</table>
+
+<h3>Row-Level Security Summary</h3>
+<div class="code">
+<span class="c">-- Pattern 1: User-scoped data (most tables)</span>
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id)
+
+<span class="c">-- Pattern 2: System + user data (exercises, templates)</span>
+USING (user_id IS NULL OR auth.uid() = user_id)
+
+<span class="c">-- Pattern 3: Indirect ownership (workout_entries)</span>
+USING (
+  EXISTS (
+    SELECT 1 FROM workouts
+    WHERE workouts.id = workout_entries.workout_id
+    AND workouts.user_id = auth.uid()
+  )
+)
+</div>
+
+<hr>
+
+<!-- Migration Strategy -->
+<div class="page-break"></div>
+<div class="section-label">Migration Strategy</div>
+<h2>Migration Architecture</h2>
+
+<div class="timeline">
+  <div class="tl-item">
+    <div class="tl-num">00001 — Foundation</div>
+    <div class="tl-title">create_tables.sql</div>
+    <div class="tl-desc">6 core tables: profiles, exercises, workouts, workout_entries, weight_logs, personal_records. All foreign keys, check constraints. NUMERIC precision for weights.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00002 — Security</div>
+    <div class="tl-title">rls_policies.sql</div>
+    <div class="tl-desc">ALTER TABLE ... ENABLE ROW LEVEL SECURITY on all 6 tables. Defines SELECT/INSERT/UPDATE/DELETE policies. Indirect ownership pattern for workout_entries.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00003 — Automation</div>
+    <div class="tl-title">triggers.sql</div>
+    <div class="tl-desc">handle_new_user() trigger for auto profile creation on OAuth. update_updated_at() for profiles and personal_records. SECURITY DEFINER execution context.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00004 — Performance</div>
+    <div class="tl-title">indexes.sql</div>
+    <div class="tl-desc">B-tree indexes on all user_id columns, log_date, completed_at. Covers all common query filter patterns with O(log n) performance.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00005 — RBAC</div>
+    <div class="tl-title">add_role_to_profiles.sql</div>
+    <div class="tl-desc">ADD COLUMN role TEXT DEFAULT 'user'. CHECK constraint: user|admin|super_admin. protect_profile_role trigger prevents unauthorized role escalation via UPDATE. Only super_admin can change roles.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00006 — Exercise RLS</div>
+    <div class="tl-title">update_exercise_rls_policies.sql</div>
+    <div class="tl-desc">Refines exercise visibility: user_id IS NULL means system exercises (visible to all authenticated users). user_id set means user-private custom exercise. Enables admin to create system exercises.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00007 — Fields</div>
+    <div class="tl-title">add_exercise_fields.sql</div>
+    <div class="tl-desc">ADD COLUMN category, equipment, difficulty, alternative_exercise, notes to exercises. Enables categorization (Upper/Lower/Cardio) and coaching notes.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00008 — Templates</div>
+    <div class="tl-title">workout_templates.sql</div>
+    <div class="tl-desc">Creates workout_templates and workout_template_exercises tables. Adds template_id FK to workouts. Adds set_type to workout_entries. Seeds 6 system templates with all exercises and rep targets. RLS policies: system templates visible to all.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00009 — Packages</div>
+    <div class="tl-title">refine_workout_system.sql</div>
+    <div class="tl-desc">Creates workout_packages and workout_package_templates junction tables. Seeds "Upper & Lower Split" package containing all 6 templates ordered by sequence.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00010 — Athlete Upgrade</div>
+    <div class="tl-title">athlete_upgrade_system.sql</div>
+    <div class="tl-desc">exercise_alternatives (self-join, 3 ordered swaps, self-reference constraint). personal_records_history (timestamped PR events). body_measurements (8 measurements + date). progress_photos (URL + front/side/back). user_schedule_settings. Bi-directional weight sync triggers. Extends personal_records with max_volume column.</div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-num">00011 — Storage</div>
+    <div class="tl-title">progress_photos_bucket.sql</div>
+    <div class="tl-desc">Configures Supabase Storage bucket "progress-photos". RLS policies: authenticated INSERT (own folder), authenticated SELECT/DELETE (own files only). MIME type restrictions.</div>
+  </div>
+</div>
+
+<hr>
+
+<!-- Frontend Architecture -->
+<div class="section-label">Frontend Architecture</div>
+<h2>Frontend Module Architecture</h2>
+
+<h3>Feature-Based Module Pattern</h3>
+<div class="code">
+src/features/
+├── admin/
+│   ├── components/         <span class="c"># AdminDashboard, UserTable, etc.</span>
+│   ├── services/
+│   │   └── admin-service.ts   <span class="c"># getSystemStats, getAllUsers</span>
+│   ├── actions.ts             <span class="c"># Server Actions for admin mutations</span>
+│   ├── security.ts            <span class="c"># verifyAdmin(), verifySuperAdmin()</span>
+│   └── types.ts               <span class="c"># AdminStats, SystemUser types</span>
+│
+├── exercises/
+│   ├── components/         <span class="c"># ExerciseTable, ExerciseDetailDrawer</span>
+│   ├── services/
+│   │   └── exercise-service.ts
+│   ├── actions.ts
+│   └── types.ts
+│
+├── workouts/
+│   ├── components/         <span class="c"># WorkoutCard, ActiveWorkout, SetInputRow</span>
+│   ├── services/
+│   │   ├── workout-service.ts    <span class="c"># 1105 lines — core workout logic</span>
+│   │   └── schedule-service.ts  <span class="c"># Cycle, streak, calendar</span>
+│   ├── utils/
+│   │   └── cycle.ts              <span class="c"># Pure: CYCLE_DAYS, calculateCycleDay()</span>
+│   ├── actions.ts
+│   ├── schemas.ts            <span class="c"># Zod validation schemas</span>
+│   └── types.ts
+│
+├── weight/
+│   ├── components/         <span class="c"># WeightChart, MeasurementsForm, PhotosGrid</span>
+│   ├── services/
+│   │   ├── weight-service.ts
+│   │   ├── measurements-service.ts
+│   │   └── photos-service.ts
+│   ├── actions.ts
+│   └── types.ts
+│
+├── auth/
+│   ├── components/         <span class="c"># LoginButton, AuthCard</span>
+│   └── actions.ts          <span class="c"># signInWithGoogle, signOut</span>
+│
+├── dashboard/
+│   ├── components/         <span class="c"># StatsGrid, WeeklyHeatmap</span>
+│   ├── services/
+│   │   └── dashboard-service.ts  <span class="c"># getDashboardStats() — 5 queries</span>
+│   └── types.ts
+│
+├── profile/
+│   ├── services/
+│   │   └── profile-service.ts    <span class="c"># getProfile, mapProfileRow</span>
+│   └── types.ts
+│
+└── records/
+    ├── components/         <span class="c"># RecordsTable, PRHistoryDrawer</span>
+    └── services/
+        └── records-service.ts
+</div>
+
+<h3>Server vs Client Component Decisions</h3>
+<table>
+  <thead><tr><th>Component</th><th>Type</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr><td>DashboardLayout</td><td>Server</td><td>Needs auth.getUser() + profile DB query before render</td></tr>
+    <tr><td>DashboardPage</td><td>Server</td><td>Fetches stats server-side via getDashboardStats()</td></tr>
+    <tr><td>ExercisesPage</td><td>Server (shell) + "use client" (table)</td><td>Initial data from server; filtering is client-side</td></tr>
+    <tr><td>ActiveWorkout</td><td>Client ("use client")</td><td>useState, useEffect for timer, event handlers for set inputs</td></tr>
+    <tr><td>WeightChart</td><td>Client</td><td>Recharts requires DOM access — cannot render on server</td></tr>
+    <tr><td>CalendarView</td><td>Client</td><td>date-fns cycle calculation uses current date (client-aware)</td></tr>
+    <tr><td>ExerciseDetailDrawer</td><td>Client</td><td>Sheet/Dialog state, tab switching, optimistic updates</td></tr>
+    <tr><td>AuthProvider</td><td>Client</td><td>React Context must be a client component</td></tr>
+    <tr><td>Sidebar</td><td>Client</td><td>usePathname() for active state; conditional Admin link from useAuth()</td></tr>
+  </tbody>
+</table>
+
+<h3>Data Fetching Patterns</h3>
+<div class="grid2">
+  <div class="card">
+    <div class="card-title">🔵 Server Component Pattern</div>
+    <div class="card-text">
+      Used for initial page data. Service functions called directly inside Server Components. No useEffect, no loading states needed. Data is fresh on every request (or cached via Next.js cache).
+    </div>
+    <div class="code" style="margin-top:10px;font-size:8pt;">
+async function ExercisesPage() {
+  const exercises = await getExercises();
+  return &lt;ExerciseTable exercises={exercises} /&gt;;
+}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">⚡ Server Action Pattern</div>
+    <div class="card-text">
+      Used for all mutations. Client component calls action, awaits ActionResult&lt;T&gt;, shows toast on success/error. revalidatePath() triggers Next.js to re-fetch affected RSC data.
+    </div>
+    <div class="code" style="margin-top:10px;font-size:8pt;">
+const res = await addEntryAction(input);
+if (res.success) toast.success("Set logged!");
+else toast.error(res.error);
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- Security Architecture -->
+<div class="page-break"></div>
+<div class="section-label">Security</div>
+<h2>Security Architecture — Defense in Depth</h2>
+
+<div class="sec-layer"><div class="sec-n">1</div><div><strong>Vercel Edge Middleware (proxy.ts)</strong><br><span style="font-size:9.5pt;color:var(--muted);">Every HTTP request hits middleware first. Validates JWT, refreshes if expired. Cannot be bypassed. Handles all routes matching /((?!_next/static|favicon).*)</span></div></div>
+<div class="sec-layer"><div class="sec-n">2</div><div><strong>Next.js Layout Auth Check</strong><br><span style="font-size:9.5pt;color:var(--muted);">DashboardLayout and AdministrationLayout independently call supabase.auth.getUser() server-side. redirect() on failure. Belt-and-suspenders with middleware.</span></div></div>
+<div class="sec-layer"><div class="sec-n">3</div><div><strong>Server Action User Validation</strong><br><span style="font-size:9.5pt;color:var(--muted);">Every server action that touches user data calls supabase.auth.getUser() at the start. Throws "Unauthorized" if no session. Prevents Server Action abuse.</span></div></div>
+<div class="sec-layer"><div class="sec-n">4</div><div><strong>Admin Role Verification (verifyAdmin)</strong><br><span style="font-size:9.5pt;color:var(--muted);">All admin actions and admin page layouts call verifyAdmin() which reads the profile.role from database (not JWT claims). Cannot be faked client-side. Throws 403 Forbidden on insufficient role.</span></div></div>
+<div class="sec-layer"><div class="sec-n">5</div><div><strong>PostgreSQL Row-Level Security</strong><br><span style="font-size:9.5pt;color:var(--muted);">RLS enabled on all 15 tables. auth.uid() evaluated by PostgreSQL at query time. Even if application code has a bug, users cannot read or modify other users' data. Database-enforced, cannot be disabled by application code.</span></div></div>
+<div class="sec-layer"><div class="sec-n">6</div><div><strong>Database Trigger: Role Protection</strong><br><span style="font-size:9.5pt;color:var(--muted);">protect_profile_role trigger runs BEFORE UPDATE on profiles. If role is being changed and the requesting user is not super_admin, silently reverts the change. Prevents SQL injection or privilege escalation even with direct DB access via the anon key.</span></div></div>
+
+<h3>Environment Variables</h3>
+<table>
+  <thead><tr><th>Variable</th><th>Access</th><th>Used For</th></tr></thead>
+  <tbody>
+    <tr><td><code>NEXT_PUBLIC_SUPABASE_URL</code></td><td>Public (browser + server)</td><td>Supabase project endpoint</td></tr>
+    <tr><td><code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code></td><td>Public (anon JWT)</td><td>Client-side Supabase auth — RLS enforces data isolation</td></tr>
+    <tr><td><code>SUPABASE_SERVICE_ROLE_KEY</code></td><td>Server-only (secret)</td><td>Admin operations that bypass RLS (not used in current version)</td></tr>
+  </tbody>
+</table>
+
+<div class="callout warn">
+  <div class="callout-icon">⚠️</div>
+  <div class="callout-body">
+    <strong>Anon Key Safety</strong>
+    The anon key is intentionally public. It grants Supabase Auth access and is constrained by RLS policies. Without a valid authenticated user session, all data queries return empty. The security model relies on PostgreSQL, not key secrecy.
+  </div>
+</div>
+
+<hr>
+
+<!-- Performance -->
+<div class="section-label">Performance</div>
+<h2>Performance Architecture</h2>
+
+<table>
+  <thead><tr><th>Optimization</th><th>Mechanism</th><th>Estimated Impact</th></tr></thead>
+  <tbody>
+    <tr><td>React Server Components</td><td>Zero client JS for data fetching; HTML rendered server-side</td><td>50–70% smaller client bundle</td></tr>
+    <tr><td>Turbopack</td><td>Next.js 16 dev server — Rust-based bundler</td><td>~10x faster HMR than webpack</td></tr>
+    <tr><td>No hydration waterfalls</td><td>RSC streams HTML; client components hydrate independently</td><td>Faster Time-to-Interactive</td></tr>
+    <tr><td>Database indexes</td><td>B-tree on user_id, log_date, exercise_id, template_id, completed_at</td><td>O(log n) query on all common filters</td></tr>
+    <tr><td>Selective revalidation</td><td>revalidatePath() targets specific route segments only</td><td>Minimal RSC cache invalidation</td></tr>
+    <tr><td>Supabase PgBouncer</td><td>Connection pooling for serverless — prevents connection exhaustion</td><td>Handles 100s of concurrent requests</td></tr>
+    <tr><td>Vercel CDN</td><td>Static assets (CSS, fonts, images) served from Edge locations</td><td>&lt;50ms asset delivery globally</td></tr>
+    <tr><td>Zero state management runtime</td><td>No Redux/Zustand bundle overhead</td><td>~15–30KB smaller bundle</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<div class="section-label">Developer Guide</div>
+<h2>Developer Reference</h2>
+
+<h3>Key Invariants — Never Break These</h3>
+<ul class="lst">
+  <li><strong>Every new admin action MUST call verifyAdmin()</strong> — never rely on frontend role checks alone</li>
+  <li><strong>Every new database table MUST have RLS enabled</strong> — enable in the same migration that creates the table</li>
+  <li><strong>cycle.ts must remain import-free</strong> — no server imports, no next/headers, no supabase — used by client components</li>
+  <li><strong>All mutations use Server Actions</strong> — never create /api/* route handlers for user data mutations</li>
+  <li><strong>Migration files must be sequentially numbered</strong> — audit existing files before naming a new migration</li>
+  <li><strong>revalidatePath() must be called after every mutation</strong> — otherwise RSC data will be stale</li>
+  <li><strong>TypeScript errors are breaking</strong> — <code>npm run build</code> must pass before any commit</li>
+</ul>
+
+<h3>Adding a New Feature Checklist</h3>
+<table>
+  <thead><tr><th>#</th><th>Step</th><th>Location</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Create feature directory</td><td><code>src/features/&lt;feature-name&gt;/</code></td></tr>
+    <tr><td>2</td><td>Define TypeScript types</td><td><code>types.ts</code> in feature dir</td></tr>
+    <tr><td>3</td><td>Write service layer</td><td><code>services/&lt;feature&gt;-service.ts</code></td></tr>
+    <tr><td>4</td><td>Write server actions</td><td><code>actions.ts</code> ("use server" at top)</td></tr>
+    <tr><td>5</td><td>Build components</td><td><code>components/</code> in feature dir</td></tr>
+    <tr><td>6</td><td>Create page route</td><td><code>src/app/dashboard/&lt;feature&gt;/page.tsx</code></td></tr>
+    <tr><td>7</td><td>Add route constant</td><td><code>src/config/routes.ts</code></td></tr>
+    <tr><td>8</td><td>Add nav item (if needed)</td><td><code>navItems</code> in routes.ts + sidebar.tsx + bottom-nav.tsx</td></tr>
+    <tr><td>9</td><td>Create migration</td><td><code>supabase/migrations/000XX_&lt;feature&gt;.sql</code></td></tr>
+    <tr><td>10</td><td>Enable RLS in migration</td><td>ALTER TABLE ... ENABLE ROW LEVEL SECURITY; + policies</td></tr>
+    <tr><td>11</td><td>Run migration</td><td><code>npx supabase db push</code></td></tr>
+    <tr><td>12</td><td>Verify build</td><td><code>npm run build</code></td></tr>
+  </tbody>
+</table>
+
+<div style="margin-top:40px;padding:24px;border:1px solid var(--border);border-radius:12px;text-align:center;background:var(--bg3);">
+  <div style="font-size:24pt;margin-bottom:8px;">🏋️</div>
+  <div style="font-size:16pt;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px;">THE TRACKER — Architecture Guide</div>
+  <div style="font-size:10pt;color:var(--muted);font-family:var(--mono);">Hussein A-H · github.com/HusseinA-H/THE-TRACKER · 2026</div>
+</div>
+
+</div><!-- /.wrapper -->
+</body>
+</html>
